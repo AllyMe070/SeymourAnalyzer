@@ -949,6 +949,19 @@ function getCacheDataFromCollection(uuid) {
     tier: stored.bestMatch.tier,
     isFade: isFadeColor,
     isCustom: isCustom,
+    // Propagate whether this stored piece matches any active search hexes
+    isSearchMatch: (function() {
+      try {
+        if (!searchHexes || searchHexes.length === 0) return false;
+        const hexUpper = (stored.hexcode || "").toUpperCase();
+        for (let i = 0; i < searchHexes.length; i++) {
+          if (hexUpper === searchHexes[i]) return true;
+        }
+      } catch (e) {
+        // silent
+      }
+      return false;
+    })(),
     alreadyProcessed: true,
     collectionUuid: uuid,
     analysis: {
@@ -2833,13 +2846,23 @@ if (arg1 && arg1.toLowerCase() === "clear") {
       return;
     }
     
-    searchHexes = validHexes;
+    // Merge new valid hexes into the existing search list (allow multi-search)
+    let addedCount = 0;
+    for (let i = 0; i < validHexes.length; i++) {
+      const h = validHexes[i];
+      if (searchHexes.indexOf(h) === -1) {
+        searchHexes.push(h);
+        addedCount++;
+      }
+    }
+
     updateSearchMatchesInCache();
-    const foundPieces = searchForHexes(validHexes);
+    // Search across the full set of active search hexes so highlights accumulate
+    const foundPieces = searchForHexes(searchHexes);
     
     ChatLib.chat("§8§m----------------------------------------------------");
     ChatLib.chat("§a§l[Seymour Analyzer] §7- Search Results");
-    ChatLib.chat("§7Searching for §e" + validHexes.length + " §7hex code" + (validHexes.length === 1 ? "" : "s"));
+    ChatLib.chat("§7Added §e" + addedCount + " §7hex code" + (addedCount === 1 ? "" : "s") + ". Now searching for §e" + searchHexes.length + " §7total.");
     
     if (foundPieces.length === 0) {
       ChatLib.chat("§c§lNo pieces found!");
