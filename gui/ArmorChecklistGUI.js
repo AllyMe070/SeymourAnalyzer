@@ -1399,6 +1399,22 @@ if (visibleStages > 19) {
             const progressText = "§eCalculating... §7Stage " + (this.calculationProgress + 1) + "/" + stages.length;
             Renderer.drawStringWithShadow(progressText, 20, startY + (maxVisible * rowHeight) + -1);
         }
+
+        // // Show recent right-click failure info for 2s (lightweight on-screen debug)
+        // try {
+        //     if (this._lastRightClickFail && (Date.now() - this._lastRightClickFail.t) < 2000) {
+        //         const info = this._lastRightClickFail;
+        //         const lines = [
+        //             "RC Fail: mouseY=" + info.mouseY + ", startY=" + info.startY + ", rowH=" + info.rowHeight,
+        //             "screenH=" + info.screenHeight + ", availH=" + info.availableHeight + ", maxVisible=" + info.maxVisible,
+        //             "visibleStages=" + info.visibleStages + ", scrollOffset=" + info.scrollOffset + ", stages=" + info.stagesLength
+        //         ];
+        //         let ly = startY + (maxVisible * rowHeight) + 18;
+        //         for (let li = 0; li < lines.length; li++) {
+        //             Renderer.drawStringWithShadow("§e" + lines[li], 20, ly + (li * 10));
+        //         }
+        //     }
+        // } catch (e) {}
     }
 
     startFadeDyeCalculation(categoryName) {
@@ -2503,64 +2519,36 @@ if (visibleStages > 19) {
         const stages = this.categories[currentCategory];
         const startY = 70;
         const rowHeight = 30;
+
         
-        // Check which row was clicked
-        const maxVisible = 12;
-        const visibleStages = Math.min(stages.length - this.scrollOffset, maxVisible);
+        
+        // Check which row was clicked — match the dynamic calculation used in drawChecklist
+        const screenHeight = Renderer.screen.getHeight();
+        const availableHeight = screenHeight - 140; // same padding as drawChecklist
+        const maxVisible = Math.max(12, Math.floor(availableHeight / rowHeight)); // at least 12
+        const visibleStages = Math.min(Math.max(stages.length - this.scrollOffset, 0), maxVisible);
+
+        
         
         let clickedIndex = -1;
-        
-        // Check each visible row manually
-        if (visibleStages > 0) {
-            const y0 = startY + (0 * rowHeight);
-            if (mouseY >= y0 && mouseY < y0 + rowHeight) clickedIndex = 0;
+
+        // Determine which visible row was clicked dynamically
+        let vi = 0;
+        while (vi < visibleStages) {
+            const rowY = startY + (vi * rowHeight);
+            if (mouseY >= rowY && mouseY < rowY + rowHeight) {
+                clickedIndex = vi;
+                break;
+            }
+            vi = vi + 1;
         }
-        if (visibleStages > 1) {
-            const y1 = startY + (1 * rowHeight);
-            if (mouseY >= y1 && mouseY < y1 + rowHeight) clickedIndex = 1;
+
+        if (clickedIndex === -1) {
+            try {
+                1 + 1 // if you remove this EVERYTHING BREAKS. DONT ASK ME WHY
+            } catch (e) {}
+            return;
         }
-        if (visibleStages > 2) {
-            const y2 = startY + (2 * rowHeight);
-            if (mouseY >= y2 && mouseY < y2 + rowHeight) clickedIndex = 2;
-        }
-        if (visibleStages > 3) {
-            const y3 = startY + (3 * rowHeight);
-            if (mouseY >= y3 && mouseY < y3 + rowHeight) clickedIndex = 3;
-        }
-        if (visibleStages > 4) {
-            const y4 = startY + (4 * rowHeight);
-            if (mouseY >= y4 && mouseY < y4 + rowHeight) clickedIndex = 4;
-        }
-        if (visibleStages > 5) {
-            const y5 = startY + (5 * rowHeight);
-            if (mouseY >= y5 && mouseY < y5 + rowHeight) clickedIndex = 5;
-        }
-        if (visibleStages > 6) {
-            const y6 = startY + (6 * rowHeight);
-            if (mouseY >= y6 && mouseY < y6 + rowHeight) clickedIndex = 6;
-        }
-        if (visibleStages > 7) {
-            const y7 = startY + (7 * rowHeight);
-            if (mouseY >= y7 && mouseY < y7 + rowHeight) clickedIndex = 7;
-        }
-        if (visibleStages > 8) {
-            const y8 = startY + (8 * rowHeight);
-            if (mouseY >= y8 && mouseY < y8 + rowHeight) clickedIndex = 8;
-        }
-        if (visibleStages > 9) {
-            const y9 = startY + (9 * rowHeight);
-            if (mouseY >= y9 && mouseY < y9 + rowHeight) clickedIndex = 9;
-        }
-        if (visibleStages > 10) {
-            const y10 = startY + (10 * rowHeight);
-            if (mouseY >= y10 && mouseY < y10 + rowHeight) clickedIndex = 10;
-        }
-        if (visibleStages > 11) {
-            const y11 = startY + (11 * rowHeight);
-            if (mouseY >= y11 && mouseY < y11 + rowHeight) clickedIndex = 11;
-        }
-        
-        if (clickedIndex === -1) return;
         
         const stage = stages[this.scrollOffset + clickedIndex];
         
@@ -2577,6 +2565,8 @@ if (visibleStages > 19) {
         }
         
         if (!clickedPieceType) return;
+
+        
         
         // Find the match for this piece type
         const match = this.findBestMatch(stage.hex, clickedPieceType);
