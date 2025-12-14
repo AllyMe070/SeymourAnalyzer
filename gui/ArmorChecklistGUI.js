@@ -2505,10 +2505,9 @@ if (visibleStages > 19) {
         const rowHeight = 30;
         
         // Check which row was clicked
-        const screenHeight = Renderer.screen.getHeight();
-        const availableHeight = screenHeight - 140; // Total padding: 70 top + 70 bottom
-        const maxVisible = Math.max(12, Math.floor(availableHeight / 30)); // At least 12, more if space allows
+        const maxVisible = 19;
         const visibleStages = Math.min(stages.length - this.scrollOffset, maxVisible);
+        ChatLib.chat("§a[Armor Checklist] Handling right-click at (" + mouseX + ", " + mouseY + "), visibleStages=" + visibleStages);
         
         let clickedIndex = -1;
         
