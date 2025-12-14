@@ -1805,6 +1805,7 @@ if (visibleStages > 19) {
                 boots: null,
                 calculated: false,
                 stageHex: stage.hex,
+                stageIndex: si,
                 // candidates will be filled per-stage in the staged worker
                 candidates: {
                     helmet: [],
@@ -2066,52 +2067,109 @@ if (visibleStages > 19) {
     }
 
     assignOptimalNormalMatches(categoryName) {
-        // For each stage hex in the normalColorCache for this category, pick the best candidate per piece type.
+        // Use aggregated greedy assignment (one piece can be used only once per category)
         const cache = this.normalColorCache[categoryName];
         if (!cache || !cache.matches) return;
 
-        const keys = Object.keys(cache.matches);
-        let ki = 0;
-        while (ki < keys.length) {
+        const pieceTypes = ["helmet", "chestplate", "leggings", "boots"];
+
+        // Build aggregated candidate lists across all stages
+        const aggregated = {
+            helmet: [],
+            chestplate: [],
+            leggings: [],
+            boots: []
+        };
+
+        const keys = Object.keys(cache.matches || {});
+        let k = 0;
+        while (k < keys.length) {
             try {
-            const hexKey = keys[ki];
-            const entry = cache.matches[hexKey];
-            if (!entry) { ki = ki + 1; continue; }
+                const entry = cache.matches[keys[k]];
+                if (!entry || !entry.candidates) { k = k + 1; continue; }
 
-            const candidates = (entry.candidates) ? entry.candidates : { helmet: [], chestplate: [], leggings: [], boots: [] };
-
-            // For each piece type pick the single best (smallest deltaE)
-            const pieceTypes = ["helmet", "chestplate", "leggings", "boots"];
-            let p = 0;
-            while (p < pieceTypes.length) {
-                const pt = pieceTypes[p];
-                const arr = candidates[pt] || [];
-
-                if (arr.length === 0) {
-                entry[pt] = null;
-                } else {
-                // sort by deltaE ascending
-                arr.sort(function(a, b) { return a.deltaE - b.deltaE; });
-                const best = arr[0];
-                entry[pt] = {
-                    name: best.name,
-                    hex: best.hex,
-                    deltaE: best.deltaE,
-                    uuid: best.uuid
-                };
+                let pt = 0;
+                while (pt < pieceTypes.length) {
+                    const ptn = pieceTypes[pt];
+                    const arr = entry.candidates[ptn] || [];
+                    let a = 0;
+                    while (a < arr.length) {
+                        aggregated[ptn].push(arr[a]);
+                        a = a + 1;
+                    }
+                    pt = pt + 1;
                 }
-                p = p + 1;
+            } catch (e) {}
+            k = k + 1;
+        }
+
+        // For each piece type, sort aggregated candidates and greedily assign one piece per stage
+        let pidx = 0;
+        while (pidx < pieceTypes.length) {
+            const pt = pieceTypes[pidx];
+            const candidates = aggregated[pt] || [];
+
+            // Sort by deltaE ascending
+            candidates.sort(function(a, b) { return a.deltaE - b.deltaE; });
+
+            const usedPiecesThisType = {};
+            const assignedStageIndices = {};
+
+            let ci = 0;
+            while (ci < candidates.length) {
+                const c = candidates[ci];
+                const stageIndex = c.stageIndex;
+
+                if (stageIndex === undefined || stageIndex === null) { ci = ci + 1; continue; }
+
+                // If this piece (uuid) not used for this piece type yet and this stage hasn't been assigned
+                if (!usedPiecesThisType[c.uuid] && !assignedStageIndices[stageIndex]) {
+                    // Find the corresponding entry by stageIndex
+                    // Entries were prepopulated with stageIndex property
+                    let assignKey = null;
+                    let kk = 0;
+                    while (kk < keys.length) {
+                        try {
+                            const e = cache.matches[keys[kk]];
+                            if (e && e.stageIndex === stageIndex) { assignKey = keys[kk]; break; }
+                        } catch (ee) {}
+                        kk = kk + 1;
+                    }
+
+                    if (assignKey !== null) {
+                        try {
+                            const entryToAssign = cache.matches[assignKey];
+                            entryToAssign[pt] = {
+                                name: c.name,
+                                hex: c.hex,
+                                deltaE: c.deltaE,
+                                uuid: c.uuid
+                            };
+                            usedPiecesThisType[c.uuid] = true;
+                            assignedStageIndices[stageIndex] = true;
+                        } catch (e) {}
+                    }
+                }
+
+                ci = ci + 1;
             }
 
-            // Mark calculated and remove heavy candidates list to reduce memory
-            entry.calculated = true;
-            try { delete entry.candidates; } catch (e) {}
-            } catch (e) {
-            // ignore per-entry errors
-            }
-            ki = ki + 1;
+            pidx = pidx + 1;
         }
+
+        // Mark all entries as calculated and remove heavy candidates
+        let kk2 = 0;
+        while (kk2 < keys.length) {
+            try {
+                const e2 = cache.matches[keys[kk2]];
+                if (e2) {
+                    e2.calculated = true;
+                    try { delete e2.candidates; } catch (e) {}
+                }
+            } catch (e) {}
+            kk2 = kk2 + 1;
         }
+    }
 
     recalculateAllPages() {
         // Reset caches to force full recalculation
