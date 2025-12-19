@@ -1228,12 +1228,16 @@ function checkIfPieceOwnedByMatch(bestMatchName, itemHex, top3Matches, itemName)
       // For NORMAL COLORS: use hex
       const targetHex = armorGui.categories[foundInCategory][stageIndex].hex;
       
-      if (!categoryCache.matches || !categoryCache.matches[targetHex]) {
+      // Prefer per-stage indexed data if present (handles duplicate hex entries)
+      if (!(categoryCache.matchesByIndex && categoryCache.matchesByIndex[stageIndex]) &&
+          (!categoryCache.matches || !categoryCache.matches[targetHex])) {
         ownershipCache[cacheKey] = null;
         return null;
       }
-      
-      const matchData = categoryCache.matches[targetHex];
+
+      const matchData = (categoryCache.matchesByIndex && categoryCache.matchesByIndex[stageIndex]) ?
+                        categoryCache.matchesByIndex[stageIndex] :
+                        categoryCache.matches[targetHex];
       const pieceData = matchData[hoveredPieceType];
       
       if (pieceData && pieceData !== null && pieceData.deltaE !== undefined) {

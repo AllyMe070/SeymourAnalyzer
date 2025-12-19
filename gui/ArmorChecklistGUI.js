@@ -1781,12 +1781,15 @@ if (visibleStages > 19) {
             this.normalColorCache[categoryName].matches = this.normalColorCache[categoryName].matches || {};
         }
 
-        // Prepopulate matches entries by HEX so UI can reference them immediately
+        // Prepopulate matches entries by INDEX so duplicate hex values don't collide.
+        // Keep the hex-keyed map as a compatibility reference but use matchesByIndex
+        // for all per-stage operations and assignment.
+        this.normalColorCache[categoryName].matchesByIndex = this.normalColorCache[categoryName].matchesByIndex || {};
         let si = 0;
         while (si < stages.length) {
             const stage = stages[si];
             const hexKey = "" + stage.hex;
-            this.normalColorCache[categoryName].matches[hexKey] = {
+            const entry = {
                 helmet: null,
                 chestplate: null,
                 leggings: null,
@@ -1802,6 +1805,13 @@ if (visibleStages > 19) {
                     boots: []
                 }
             };
+
+            // Store by index (primary store)
+            this.normalColorCache[categoryName].matchesByIndex[si] = entry;
+
+            // Also store by hex for backwards compatibility (may be overwritten if hex duplicates exist)
+            this.normalColorCache[categoryName].matches[hexKey] = entry;
+
             si = si + 1;
         }
 
@@ -1894,10 +1904,9 @@ if (visibleStages > 19) {
                                     si3 = si3 + 1;
                                 }
 
-                                // Store into per-hex cache entry
+                                // Store into per-index cache entry (avoid hex collisions)
                                 try {
-                                    const hexKey = "" + stage.hex;
-                                    const entry = self.normalColorCache[categoryName].matches[hexKey];
+                                    const entry = self.normalColorCache[categoryName].matchesByIndex[stageIdx];
                                     if (entry) {
                                         entry.candidates = localCandidates;
                                     }
@@ -2011,7 +2020,7 @@ if (visibleStages > 19) {
                         } catch (ie) {}
                         kk = kk + 1;
                     }
-                    const entry2 = this.normalColorCache[categoryName].matches[hexKey];
+                    const entry2 = this.normalColorCache[categoryName].matchesByIndex[si2];
                     if (entry2) entry2.candidates = localCandidates;
                 } catch (outerE) {}
                 si2 = si2 + 1;
@@ -2069,11 +2078,12 @@ if (visibleStages > 19) {
             boots: []
         };
 
-        const keys = Object.keys(cache.matches || {});
+        // Aggregate candidates from the per-stage indexed map to avoid hex collisions
+        const keys = Object.keys(cache.matchesByIndex || {});
         let k = 0;
         while (k < keys.length) {
             try {
-                const entry = cache.matches[keys[k]];
+                const entry = cache.matchesByIndex[keys[k]];
                 if (!entry || !entry.candidates) { k = k + 1; continue; }
 
                 let pt = 0;
@@ -2112,21 +2122,11 @@ if (visibleStages > 19) {
 
                 // If this piece (uuid) not used for this piece type yet and this stage hasn't been assigned
                 if (!usedPiecesThisType[c.uuid] && !assignedStageIndices[stageIndex]) {
-                    // Find the corresponding entry by stageIndex
-                    // Entries were prepopulated with stageIndex property
-                    let assignKey = null;
-                    let kk = 0;
-                    while (kk < keys.length) {
+                    // Directly lookup the per-stage entry by index (string)
+                    const assignKey = String(stageIndex);
+                    if (cache.matchesByIndex && cache.matchesByIndex.hasOwnProperty(assignKey)) {
                         try {
-                            const e = cache.matches[keys[kk]];
-                            if (e && e.stageIndex === stageIndex) { assignKey = keys[kk]; break; }
-                        } catch (ee) {}
-                        kk = kk + 1;
-                    }
-
-                    if (assignKey !== null) {
-                        try {
-                            const entryToAssign = cache.matches[assignKey];
+                            const entryToAssign = cache.matchesByIndex[assignKey];
                             entryToAssign[pt] = {
                                 name: c.name,
                                 hex: c.hex,
@@ -2146,10 +2146,12 @@ if (visibleStages > 19) {
         }
 
         // Mark all entries as calculated and remove heavy candidates
+        // Mark all per-index entries as calculated and remove heavy candidates
+        const idxKeys = Object.keys(cache.matchesByIndex || {});
         let kk2 = 0;
-        while (kk2 < keys.length) {
+        while (kk2 < idxKeys.length) {
             try {
-                const e2 = cache.matches[keys[kk2]];
+                const e2 = cache.matchesByIndex[idxKeys[kk2]];
                 if (e2) {
                     e2.calculated = true;
                     try { delete e2.candidates; } catch (e) {}
@@ -2292,48 +2294,61 @@ if (visibleStages > 19) {
             return;
         }
         
-        // Normal mode: use progressive calculation like fade dyes
+        // Normal mode: use progressive calculation like fade dyes (use per-index cache)
         const currentCategory = this.pageOrder[this.currentPage];
-        const cacheExists = this.normalColorCache[currentCategory] && 
-                        this.normalColorCache[currentCategory].matches[cacheKey];
-        const hasData = cacheExists && this.normalColorCache[currentCategory].matches[cacheKey].calculated;
+
+        // Determine this stage's index within the category
+        const stages = this.categories[currentCategory];
+        let stageIndex = -1;
+        let si = 0;
+        while (si < stages.length && stageIndex === -1) {
+            if (stages[si] === stage) {
+                stageIndex = si;
+            }
+            si = si + 1;
+        }
+
+        const cacheExists = this.normalColorCache[currentCategory] &&
+                        this.normalColorCache[currentCategory].matchesByIndex &&
+                        this.normalColorCache[currentCategory].matchesByIndex[stageIndex];
+        const hasData = cacheExists && this.normalColorCache[currentCategory].matchesByIndex[stageIndex].calculated;
 
         if (!hasData) {
             // Still calculating - show loading boxes
             this.drawColorBoxAndName(stage, y);
-            
+
             if (!this.pieceToPieceMode || this.stageHasPiece(stage, "helmet")) {
                 this.drawLoadingBox(250, y);
             } else {
                 Renderer.drawRect(Renderer.color(60, 60, 60, 180), 250, y, 100, 20);
                 Renderer.drawStringWithShadow("§8-", 295, y + 6);
             }
-            
+
             if (!this.pieceToPieceMode || this.stageHasPiece(stage, "chestplate")) {
                 this.drawLoadingBox(370, y);
             } else {
                 Renderer.drawRect(Renderer.color(60, 60, 60, 180), 370, y, 100, 20);
                 Renderer.drawStringWithShadow("§8-", 415, y + 6);
             }
-            
+
             if (!this.pieceToPieceMode || this.stageHasPiece(stage, "leggings")) {
                 this.drawLoadingBox(500, y);
             } else {
                 Renderer.drawRect(Renderer.color(60, 60, 60, 180), 500, y, 100, 20);
                 Renderer.drawStringWithShadow("§8-", 545, y + 6);
             }
-            
+
             if (!this.pieceToPieceMode || this.stageHasPiece(stage, "boots")) {
                 this.drawLoadingBox(630, y);
             } else {
                 Renderer.drawRect(Renderer.color(60, 60, 60, 180), 630, y, 100, 20);
                 Renderer.drawStringWithShadow("§8-", 675, y + 6);
             }
-            
+
             return;
         }
 
-        const cached = this.normalColorCache[currentCategory].matches[cacheKey];
+        const cached = this.normalColorCache[currentCategory].matchesByIndex[stageIndex];
         
         this.drawColorBoxAndName(stage, y);
         
@@ -2838,7 +2853,7 @@ if (visibleStages > 19) {
             }
         } else {
             if (!this.normalColorCache[currentCategory] || 
-                !this.normalColorCache[currentCategory].matches) {
+                (!this.normalColorCache[currentCategory].matchesByIndex && !this.normalColorCache[currentCategory].matches)) {
                 return { t1: 0, t2: 0, missing: 0, filled: 0, total: 0, percent: 0, calculating: true };
             }
         }
@@ -2867,13 +2882,12 @@ if (visibleStages > 19) {
                     cache = this.fadeDyeOptimalCache[currentCategory].matchesByIndex[stageIndex];
                 }
             } else {
-                const hex = "" + stages[stageIndex].hex;
-                calculated = this.normalColorCache[currentCategory] &&
-                            this.normalColorCache[currentCategory].matches[hex] &&
-                            this.normalColorCache[currentCategory].matches[hex].calculated;
-                
+                // Use per-stage indexed cache to avoid collisions when duplicate hex values exist
+                const idxEntry = this.normalColorCache[currentCategory] && this.normalColorCache[currentCategory].matchesByIndex && this.normalColorCache[currentCategory].matchesByIndex[stageIndex];
+                calculated = !!(idxEntry && idxEntry.calculated);
+
                 if (calculated) {
-                    cache = this.normalColorCache[currentCategory].matches[hex];
+                    cache = idxEntry;
                 }
             }
             
