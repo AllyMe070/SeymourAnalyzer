@@ -32,7 +32,7 @@ function printPerf() {
 }
 
 // ===== CONFIG =====
-const DEBUG = false;
+let DEBUG = false;
 const HIGHLIGHT_DEBUG = false;
 
 // ===== PERSISTENT DATA =====
@@ -513,6 +513,25 @@ function matchesWordPattern(hex) {
   for (let i = 0; i < wordKeys.length; i++) {
     const word = wordKeys[i];
     const hexWord = String(wordList[word]).toUpperCase();
+    if (hexWord.indexOf('X') !== -1) {
+      try {
+        const len = hexWord.length;
+        const regex = new RegExp('^' + hexWord.replace(/X/g, '[0-9A-F]') + '$');
+        for (let si = 0; si + len <= hexUpper.length; si++) {
+          const sub = hexUpper.substr(si, len);
+          if (regex.test(sub)) {
+            if (DEBUG) {
+              ChatLib.chat("§a[Debug] ✓✓✓ WORD MATCH (wildcard) " + hexUpper + " matches " + hexWord + " (word: " + word + ")");
+            }
+            const result = { word: word, pattern: hexUpper };
+            wordMatchCache[hex] = result;
+            return result;
+          }
+        }
+      } catch (e) {
+        if (DEBUG) ChatLib.chat("§c[Debug] Wildcard match error: " + e);
+      }
+    }
     
     if (DEBUG) {
       ChatLib.chat("§b[Debug] Checking if '" + hexUpper + "' contains pattern '" + hexWord + "' for word '" + word + "'");
@@ -3271,8 +3290,8 @@ if (arg1 && arg1.toLowerCase() === "clear") {
         ChatLib.chat("§b[Debug] Parsed - word: '" + word + "', hexWord: '" + hexWord + "'");
       }
       
-      if (!/^[0-9A-F]+$/.test(hexWord)) {
-        ChatLib.chat("§a[Seymour Analyzer] §cWord must only contain 0-9 and A-F!");
+      if (!/^[0-9A-FX]+$/.test(hexWord)) {
+        ChatLib.chat("§a[Seymour Analyzer] §cWord must only contain 0-9 and A-F, or the Wildcard Character X!");
         return;
       }
       
@@ -3654,3 +3673,8 @@ register("command", () => {
   reloadCollectionFromDisk();
   ChatLib.chat("§a[Seymour Analyzer] §7Reloaded collection from disk! §e" + Object.keys(collection).length + " §7pieces loaded.");
 }).setName("seymourreload").setAliases("sreload");
+
+register("command", () => {
+  DEBUG = !DEBUG;  
+  ChatLib.chat("§a[Seymour Analyzer]" + (DEBUG ? " Enabled" : " Disabled") + " Debug Mode!");
+}).setName("seymourdebug").setAliases("sdebug");
