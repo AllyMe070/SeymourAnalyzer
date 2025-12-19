@@ -49,7 +49,8 @@ const data = new PogObject("SeymourAnalyzer", {
   patternsEnabled: true,
   customColorsEnabled: true,
   dupesEnabled: true,
-  showHighFades: false
+  showHighFades: false,
+  itemFramesEnabled: true
 });
 
 global.collection = new PogObject("SeymourAnalyzer", {}, "Collection.json");
@@ -949,19 +950,6 @@ function getCacheDataFromCollection(uuid) {
     tier: stored.bestMatch.tier,
     isFade: isFadeColor,
     isCustom: isCustom,
-    // Propagate whether this stored piece matches any active search hexes
-    isSearchMatch: (function() {
-      try {
-        if (!searchHexes || searchHexes.length === 0) return false;
-        const hexUpper = (stored.hexcode || "").toUpperCase();
-        for (let i = 0; i < searchHexes.length; i++) {
-          if (hexUpper === searchHexes[i]) return true;
-        }
-      } catch (e) {
-        // silent
-      }
-      return false;
-    })(),
     alreadyProcessed: true,
     collectionUuid: uuid,
     analysis: {
@@ -1326,7 +1314,7 @@ function checkForDupeHex(itemHex, itemUuid) {
 }
 
 function readItemFrames () {
-  if (!scanningEnabled && !exportingEnabled) return;
+  if (!data.itemFramesEnabled || (!scanningEnabled && !exportingEnabled)) return;
 
   let itemFrames = []
   let pieceCount = 0;
@@ -2770,10 +2758,9 @@ register("command", function() {
       scanningEnabled = false;
       const count = Object.keys(collection).length;
       dbGui.collectionChanged = true;
-      reloadCollectionFromDisk();
-      armorGui.recalculateAllPages();
       clearAllCaches();
-      ChatLib.chat("§a[Seymour Analyzer] §7Scanning §cdisabled§7! Collection has §e" + count + " §7pieces. Recalculating checklist...");
+      reloadCollectionFromDisk();
+      ChatLib.chat("§a[Seymour Analyzer] §7Scanning §cdisabled§7! Collection has §e" + count + " §7pieces.");
       return;
     } else {
       ChatLib.chat("§a[Seymour Analyzer] §cInvalid action! Use 'start' or 'stop'.");
@@ -2846,23 +2833,13 @@ if (arg1 && arg1.toLowerCase() === "clear") {
       return;
     }
     
-    // Merge new valid hexes into the existing search list (allow multi-search)
-    let addedCount = 0;
-    for (let i = 0; i < validHexes.length; i++) {
-      const h = validHexes[i];
-      if (searchHexes.indexOf(h) === -1) {
-        searchHexes.push(h);
-        addedCount++;
-      }
-    }
-
+    searchHexes = validHexes;
     updateSearchMatchesInCache();
-    // Search across the full set of active search hexes so highlights accumulate
-    const foundPieces = searchForHexes(searchHexes);
+    const foundPieces = searchForHexes(validHexes);
     
     ChatLib.chat("§8§m----------------------------------------------------");
     ChatLib.chat("§a§l[Seymour Analyzer] §7- Search Results");
-    ChatLib.chat("§7Added §e" + addedCount + " §7hex code" + (addedCount === 1 ? "" : "s") + ". Now searching for §e" + searchHexes.length + " §7total.");
+    ChatLib.chat("§7Searching for §e" + validHexes.length + " §7hex code" + (validHexes.length === 1 ? "" : "s"));
     
     if (foundPieces.length === 0) {
       ChatLib.chat("§c§lNo pieces found!");
@@ -3392,6 +3369,7 @@ if (arg1 && arg1.toLowerCase() === "clear") {
       ChatLib.chat("§e/seymour toggle custom §7- Toggle custom colors §8[" + (data.customColorsEnabled ? "§a✓" : "§c✗") + "§8]");
       ChatLib.chat("§e/seymour toggle dupes §7- Toggle dupe highlights §8[" + (data.dupesEnabled ? "§a✓" : "§c✗") + "§8]");
       ChatLib.chat("§e/seymour toggle highfades §7- Toggle high fades §8[" + (data.showHighFades ? "§a✓" : "§c✗") + "§8]");
+      ChatLib.chat("§e/seymour toggle itemframes §7- Toggle item frame scanning §8[" + (data.itemFramesEnabled ? "§a✓" : "§c✗") + "§8]");
       ChatLib.chat("§8§m----------------------------------------------------");
       return;
     } else if (arg2.toLowerCase() === "infobox") {
@@ -3475,8 +3453,14 @@ if (arg1 && arg1.toLowerCase() === "clear") {
 
       ChatLib.chat("§a[Seymour Analyzer] §7High fades will now " + (data.showHighFades ? "§anot show up" : "§cshow up") + "§7!");
       return;
+    } else if (arg2.toLowerCase() === "itemframes") {
+      data.itemFramesEnabled = !data.itemFramesEnabled;
+      data.save();
+
+      ChatLib.chat("§a[Seymour Analyzer] §7Item frame scanning " + (data.itemFramesEnabled ? "§aenabled" : "§cdisabled") + "§7!");
+      return;
     } else {
-      ChatLib.chat("§a[Seymour Analyzer] §cInvalid toggle option! §7(Available: infobox, highlights, fade, 3p, sets, words, pattern, custom, dupes, highfades)");
+      ChatLib.chat("§a[Seymour Analyzer] §cInvalid toggle option! §7(Available: infobox, highlights, fade, 3p, sets, words, pattern, custom, dupes, highfades, itemframes)");
       return;
     }
   }
