@@ -211,6 +211,7 @@ export const TARGET_COLORS = {
   "Maxor Boots": "8969C8",
   
   // Other Armor
+  "Helianthus Leggings": "FFE501",
   "Challenger's Leggings+Boots": "7C3756",
   "Mythos Leggings+Boots": "2A5B48",
   "Melody Shoes": "8D3592",
