@@ -105,8 +105,8 @@ class Settings {
     customColorsEnabled = true;
 
     @SwitchProperty({
-        name: 'Hide High Fades',
-        description: 'Hide T2+ fades (only show T1< and T1)',
+        name: 'Show High Fades',
+        description: 'Show T2+ fades (dont only show T1< and T1)',
         category: 'Filters',
     })
     showHighFades = false;
@@ -134,7 +134,7 @@ class Settings {
 
     @TextProperty({
         name: 'Custom Color',
-        description: 'Format: ColorName HEXCODE (e.g., "My Blue 0000FE")',
+        description: 'Format: ColorName HEXCODE (e.g., "My_Blue 0000FE")',
         category: 'Custom',
         placeholder: 'ColorName HEXCODE'
     })
@@ -369,7 +369,7 @@ class Settings {
             }
         });
         
-        this.registerListener('Hide High Fades', (newValue) => {
+        this.registerListener('Show High Fades', (newValue) => {
             try {
                 ChatLib.command("seymour toggle highfades", true);
             } catch (e) {

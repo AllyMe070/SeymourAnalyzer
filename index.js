@@ -3422,7 +3422,7 @@ if (arg1 && arg1.toLowerCase() === "clear") {
       ChatLib.chat("§e/seymour toggle pattern §7- Toggle pattern highlights §8[" + (data.patternsEnabled ? "§a✓" : "§c✗") + "§8]");
       ChatLib.chat("§e/seymour toggle custom §7- Toggle custom colors §8[" + (data.customColorsEnabled ? "§a✓" : "§c✗") + "§8]");
       ChatLib.chat("§e/seymour toggle dupes §7- Toggle dupe highlights §8[" + (data.dupesEnabled ? "§a✓" : "§c✗") + "§8]");
-      ChatLib.chat("§e/seymour toggle highfades §7- Toggle high fades §8[" + (data.showHighFades ? "§a✓" : "§c✗") + "§8]");
+      ChatLib.chat("§e/seymour toggle highfades §7- Show high fades (T2+) §8[" + (!data.showHighFades ? "§a✓" : "§c✗") + "§8]");
       ChatLib.chat("§e/seymour toggle itemframes §7- Toggle item frame scanning §8[" + (data.itemFramesEnabled ? "§a✓" : "§c✗") + "§8]");
       ChatLib.chat("§8§m----------------------------------------------------");
       return;
@@ -3505,7 +3505,7 @@ if (arg1 && arg1.toLowerCase() === "clear") {
 
       clearAllCaches();
 
-      ChatLib.chat("§a[Seymour Analyzer] §7High fades will now " + (data.showHighFades ? "§anot show up" : "§cshow up") + "§7!");
+      ChatLib.chat("§a[Seymour Analyzer] §7High fades (T2+) will now " + (data.showHighFades ? "§cnot show up" : "§ashow up") + "§7!");
       return;
     } else if (arg2.toLowerCase() === "itemframes") {
       data.itemFramesEnabled = !data.itemFramesEnabled;
