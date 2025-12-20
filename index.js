@@ -4,6 +4,9 @@
 // Import color database
 import { TARGET_COLORS, FADE_DYES } from "./colorDatabase";
 
+// Import Vigilance settings GUI
+import settingsGui from "./settings";
+
 // Import GUIs
 import { DatabaseGUI } from "./gui/databaseGUI";
 import { ArmorChecklistGUI } from "./gui/ArmorChecklistGUI";
@@ -964,11 +967,24 @@ function getCacheDataFromCollection(uuid) {
       priority: getPriorityScore(bestIsFade, stored.bestMatch.tier, bestIsCustom)
     });
   }
-  
+
   return {
     tier: stored.bestMatch.tier,
     isFade: isFadeColor,
     isCustom: isCustom,
+    // Propagate whether this stored piece matches any active search hexes
+    isSearchMatch: (function() {
+      try {
+        if (!searchHexes || searchHexes.length === 0) return false;
+        const hexUpper = (stored.hexcode || "").toUpperCase();
+        for (let i = 0; i < searchHexes.length; i++) {
+          if (hexUpper === searchHexes[i]) return true;
+        }
+      } catch (e) {
+        // silent
+      }
+      return false;
+    })(),
     alreadyProcessed: true,
     collectionUuid: uuid,
     analysis: {
@@ -1062,8 +1078,6 @@ for (let i = 0; i < dupeKeys.length; i++) {
 }
 hoveredItemData = null;
 }
-
-// Replace the entire checkIfPieceOwnedByMatch function in index.js (around line 800-900)
 
 // ===== CHECK IF PIECE IS OWNED IN COLLECTION =====
 function checkIfPieceOwnedByMatch(bestMatchName, itemHex, top3Matches, itemName) {
@@ -2648,6 +2662,12 @@ register("command", function() {
     bestSetsGui.open();
     return;
   }
+  
+  // Handle settings subcommand
+  if (arg1 && arg1.toLowerCase() === "settings") {
+    settingsGui.openGUI();
+    return;
+  }
 
   // Handle stats subcommand
   if (arg1 && arg1.toLowerCase() === "stats") {
@@ -2781,9 +2801,10 @@ register("command", function() {
       scanningEnabled = false;
       const count = Object.keys(collection).length;
       dbGui.collectionChanged = true;
-      clearAllCaches();
       reloadCollectionFromDisk();
-      ChatLib.chat("§a[Seymour Analyzer] §7Scanning §cdisabled§7! Collection has §e" + count + " §7pieces.");
+      armorGui.recalculateAllPages();
+      clearAllCaches();
+      ChatLib.chat("§a[Seymour Analyzer] §7Scanning §cdisabled§7! Collection has §e" + count + " §7pieces. Recalculating checklist...");
       return;
     } else {
       ChatLib.chat("§a[Seymour Analyzer] §cInvalid action! Use 'start' or 'stop'.");
@@ -2834,7 +2855,7 @@ if (arg1 && arg1.toLowerCase() === "clear") {
     const hexCodes = argString.split(/\s+/).filter(function(s) { return s.length > 0; });
     const validHexes = [];
     const invalidHexes = [];
-    
+
     for (let i = 0; i < hexCodes.length; i++) {
       let hex = hexCodes[i].replace(/#/g, "").toUpperCase().trim();
       if (hex.length === 6 && /^[0-9A-F]{6}$/.test(hex)) {
@@ -2843,27 +2864,37 @@ if (arg1 && arg1.toLowerCase() === "clear") {
         invalidHexes.push(hexCodes[i]);
       }
     }
-    
+
     if (invalidHexes.length > 0) {
       ChatLib.chat("§a§l[Seymour Analyzer] - §cInvalid hex codes:");
       for (let i = 0; i < invalidHexes.length; i++) {
         ChatLib.chat("  §c" + invalidHexes[i]);
       }
     }
-    
+
     if (validHexes.length === 0) {
       ChatLib.chat("§a§l[Seymour Analyzer] - §cNo valid hex codes provided!");
       return;
     }
-    
-    searchHexes = validHexes;
+
+    // Merge new valid hexes into the existing search list (allow multi-search)
+    let addedCount = 0;
+    for (let i = 0; i < validHexes.length; i++) {
+      const h = validHexes[i];
+      if (searchHexes.indexOf(h) === -1) {
+        searchHexes.push(h);
+        addedCount++;
+      }
+    }
+
     updateSearchMatchesInCache();
-    const foundPieces = searchForHexes(validHexes);
-    
+    // Search across the full set of active search hexes so highlights accumulate
+    const foundPieces = searchForHexes(searchHexes);
+
     ChatLib.chat("§8§m----------------------------------------------------");
     ChatLib.chat("§a§l[Seymour Analyzer] §7- Search Results");
-    ChatLib.chat("§7Searching for §e" + validHexes.length + " §7hex code" + (validHexes.length === 1 ? "" : "s"));
-    
+    ChatLib.chat("§7Added §e" + addedCount + " §7hex code" + (addedCount === 1 ? "" : "s") + ". Now searching for §e" + searchHexes.length + " §7total.");
+
     if (foundPieces.length === 0) {
       ChatLib.chat("§c§lNo pieces found!");
     } else {
@@ -3501,25 +3532,16 @@ if (arg1 && arg1.toLowerCase() === "clear") {
   ChatLib.chat("§8§m----------------------------------------------------");
   ChatLib.chat("§a§l[Seymour Analyzer] §7Commands:");
   ChatLib.chat("§f/seymour §7- Show this help menu");
-  ChatLib.chat("§e/seymour database <hex> §7- Open database (optionally with a hex to search matches to)");
-  ChatLib.chat("§e/seymour checklist §7- Open armor checklist");
-  ChatLib.chat("§e/seymour bestsets §7- Find best matching 4-piece sets");
-  ChatLib.chat("§e/seymour stats §7- Print the amount of T1/T2/Dupes in chat")
-  ChatLib.chat("§a/seymour scan <start|stop> §7- Start or stop scanning pieces");
-  ChatLib.chat("§a/seymour export <start|stop> §7- Start or stop exporting pieces to clipboard");
-  ChatLib.chat("§c/seymour rebuild §7- Show all rebuild commands");
+  ChatLib.chat("§f/seymour settings §7- Open settings GUI");
+  ChatLib.chat("§6/seymour database <hex> §7- Open database (hex is optional)");
+  ChatLib.chat("§6/seymour checklist §7- Open armor checklist");
+  ChatLib.chat("§6/seymour bestsets §7- Find best matching 4-piece sets");
+  ChatLib.chat("§e/seymour list §7- List all custom colors");
+  ChatLib.chat("§e/seymour word list §7- List all custom words");
+  ChatLib.chat("§8/seymour compare <hexes> §7- Compare multiple hex codes");
+  ChatLib.chat("§8/seymour stats §7- Print the amount of T1/T2/Dupes in chat")
   ChatLib.chat("§2/seymour search <hexes> §7- Highlight chests with hex codes");
-  ChatLib.chat("§2/seymour search clear §7- Clear search highlights");
   ChatLib.chat("§4/seymour clear §7- Clear all caches & collection");
-  ChatLib.chat("§c/seymour resetpos §7- Reset info box position");
-  ChatLib.chat("§6/seymour add <name> <hex> §7- Add custom color");
-  ChatLib.chat("§6/seymour remove <name> §7- Remove custom color");
-  ChatLib.chat("§6/seymour list §7- List all custom colors");
-  ChatLib.chat("§5/seymour word add <word> <pattern> §7- Add word pattern");
-  ChatLib.chat("§5/seymour word remove <word> §7- Remove word pattern");
-  ChatLib.chat("§5/seymour word list §7- List all word patterns");
-  ChatLib.chat("§e/seymour compare <hexes> §7- Compare multiple hex codes");
-  ChatLib.chat("§e/seymour toggle §7- Show all toggles and their status");
   ChatLib.chat("§7Collection: §e" + Object.keys(collection).length + " §7pieces");
   ChatLib.chat("§8§m----------------------------------------------------");
   } finally {
