@@ -22,17 +22,7 @@ function logPerf(label) {
   perfLog.push({ label: label, time: Date.now() });
 }
 
-function printPerf() {
-  if (perfLog.length < 2) return;
-  
-  ChatLib.chat("§e=== Performance Log ===");
-  for (let i = 1; i < perfLog.length; i++) {
-    const diff = perfLog[i].time - perfLog[i-1].time;
-    ChatLib.chat("§7" + perfLog[i].label + ": §c" + diff + "ms");
-  }
-  ChatLib.chat("§7Total: §c" + (perfLog[perfLog.length-1].time - perfLog[0].time) + "ms");
-  perfLog = [];
-}
+
 
 // ===== CONFIG =====
 let DEBUG = false;
@@ -2545,6 +2535,15 @@ register("renderOverlay", function() {
 register("guiClosed", function() {
   hoveredItemData = null;
   isDragging = false;
+
+  // Clear per-GUI item cache on GUI close to avoid accumulating
+  // ephemeral ItemStack keys across multiple GUI opens which
+  // can prevent GC and cause memory to grow fast.
+  try {
+    if (itemCache && typeof itemCache.clear === 'function') itemCache.clear();
+  } catch (e) {
+    // Silent fail - do not interrupt GUI close
+  }
 });
 
 // ===== RENDER CHEST HIGHLIGHTS =====
