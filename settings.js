@@ -48,10 +48,45 @@ import {
             return aIndex - bIndex;
         }
         
+        //Sort Display category properties
+        if (a.attributesExt.category === 'Display') {
+            const displayOrder = [
+                'Advanced Tooltips (F3 + H)',
+                'Info Box',
+                'Item Highlights',
+                'Reset Info Box Position'
+            ];
+            const aIndex = displayOrder.indexOf(a.attributesExt.name);
+            const bIndex = displayOrder.indexOf(b.attributesExt.name);
+
+            return aIndex - bIndex;
+        }
+
         return 0;
     }
 })
 class Settings {
+
+    mc = Client.getMinecraft();
+
+    @ButtonProperty({
+        name: "Advanced Tooltips (F3 + H)",
+        description: "Show advanced tooltips (THIS IS REQUIRED FOR THE MOD TO WORK)",
+        category: "Display",
+        placeholder: "Turn on"
+    })
+    advancedTooltips() {
+        try {
+            let settings = this.mc.gameSettings || this.mc.field_71474_y;
+            if (settings) {
+                settings.field_82882_x = true; // Enable advanced tooltips
+                settings.func_74303_b(); // Apply settings
+            }
+        } catch (e) {
+            ChatLib.chat("§c[Seymour] Settings error: " + e);
+        }
+    }
+
     @SwitchProperty({
         name: 'Info Box',
         description: 'Show the info box when hovering over Seymour pieces',
