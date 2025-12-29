@@ -2582,37 +2582,22 @@ if (visibleStages > 19) {
         const startY = 70;
         const rowHeight = 30;
 
-        
-        
         // Check which row was clicked — match the dynamic calculation used in drawChecklist
         const screenHeight = Renderer.screen.getHeight();
         const availableHeight = screenHeight - 140; // same padding as drawChecklist
         const maxVisible = Math.max(12, Math.floor(availableHeight / rowHeight)); // at least 12
         const visibleStages = Math.min(Math.max(stages.length - this.scrollOffset, 0), maxVisible);
 
-        
-        
-        let clickedIndex = -1;
-
-        // Determine which visible row was clicked dynamically
-        let vi = 0;
-        while (vi < visibleStages) {
-            const rowY = startY + (vi * rowHeight);
-            if (mouseY >= rowY && mouseY < rowY + rowHeight) {
-                clickedIndex = vi;
-                break;
-            }
-            vi = vi + 1;
-        }
-
-        if (clickedIndex === -1) {
-            try {
-                1 + 1 // if you remove this EVERYTHING BREAKS. DONT ASK ME WHY
-            } catch (e) {}
+        // Compute the relative row index deterministically to avoid off-by-one errors
+        const relativeRow = Math.floor((mouseY - startY) / rowHeight);
+        if (relativeRow < 0 || relativeRow >= visibleStages) {
             return;
         }
-        
-        const stage = stages[this.scrollOffset + clickedIndex];
+
+        const stageIndex = this.scrollOffset + relativeRow;
+        if (stageIndex < 0 || stageIndex >= stages.length) return;
+
+        const stage = stages[stageIndex];
         
         // Now check which column was clicked
         let clickedPieceType = null;
@@ -2630,14 +2615,28 @@ if (visibleStages > 19) {
 
         
         
-        // Find the match for this piece type
-        const match = this.findBestMatch(stage.hex, clickedPieceType);
-        
+        // Prefer using the per-stage cached match (respects "one-use-per-category" assignment)
+        // If the cache for this category/stage is calculated, use it (even if null -> treat as missing).
+        // Only fall back to scanning the whole collection when no calculated cache exists.
+        let match = null;
+        const currentCategoryCache = this.fadeDyeMode ? this.fadeDyeOptimalCache : this.normalColorCache;
+        const catCache = currentCategoryCache ? currentCategoryCache[currentCategory] : null;
+        const hasPerIndex = catCache && catCache.matchesByIndex && catCache.matchesByIndex[stageIndex];
+        const isCalculated = hasPerIndex && !!catCache.matchesByIndex[stageIndex].calculated;
+
+        if (isCalculated) {
+            // Use exactly what the UI displays for this stage (may be undefined/null => missing)
+            match = catCache.matchesByIndex[stageIndex][clickedPieceType] || null;
+        } else {
+            // No calculated cache yet: fall back to best-match scan
+            match = this.findBestMatch(stage.hex, clickedPieceType);
+        }
+
         if (!match) {
             ChatLib.chat("§c[Armor Checklist] No piece found for this slot!");
             return;
         }
-        
+
         this.showContextMenu(match, stage.hex, mouseX, mouseY);
     }
 
