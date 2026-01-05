@@ -328,6 +328,16 @@ function hexToRgb(hex) {
   };
 }
 
+function rgbToHex(rgb) {
+  const r = rgb.split(":")[0];
+  const g = rgb.split(":")[1];
+  const b = rgb.split(":")[2];
+  const rHex = Math.max(0, Math.min(255, Math.round(r))).toString(16).toUpperCase().padStart(2, '0');
+  const gHex = Math.max(0, Math.min(255, Math.round(g))).toString(16).toUpperCase().padStart(2, '0');
+  const bHex = Math.max(0, Math.min(255, Math.round(b))).toString(16).toUpperCase().padStart(2, '0');
+  return rHex + gHex + bHex;
+}
+
 function rgbToXyz(rgb) {
   let r = rgb.r / 255;
   let g = rgb.g / 255;
@@ -645,7 +655,13 @@ function getPriorityScore(isFade, tier, isCustom) {
 }
 
 // ===== EXTRACT HEX FROM ITEM =====
-function extractHexFromLore(loreArray) {
+function extractHexFromItem(item) {
+  dyed = item.getName().includes("✿")
+  if (dyed) {
+    actual_color = rgbToHex(item.getNBT().getCompoundTag("tag").getCompoundTag("ExtraAttributes").getString("color"));
+    return actual_color;
+  }
+  const loreArray = item.getLore();
   try {
     if (!loreArray || loreArray.length === 0) return null;
     
@@ -1373,8 +1389,7 @@ function readItemFrames () {
       if (!uuid) continue;
       if (collection[uuid] && !exportingEnabled) continue;
       if (exportingEnabled && exportCollection && exportCollection[uuid]) continue;
-      const loreRaw = ctItem.getLore();
-      const itemHex = extractHexFromLore(loreRaw);  
+      const itemHex = extractHexFromItem(ctItem);  
       if (!itemHex) continue;
       const analysis = analyzeSeymourArmor(itemHex, itemName);
       if (!analysis) continue;
@@ -1491,8 +1506,7 @@ function scanChestContents() {
       if (collection[uuid] && !exportingEnabled) continue;
       if (exportingEnabled && exportCollection && exportCollection[uuid]) continue;
       
-      const loreRaw = item.getLore();
-      const itemHex = extractHexFromLore(loreRaw);
+      const itemHex = extractHexFromItem(item);
       if (!itemHex) continue;
       
       // Store hex in a unique variable name to avoid any reference issues
@@ -1744,8 +1758,7 @@ function precacheChestItems() {
         continue;
       }
       
-      const loreRaw = item.getLore();
-      const hex = extractHexFromLore(loreRaw);
+      const hex = extractHexFromItem(item);
       
       if (!hex) {
         itemCache.put(stack, { tier: -1, isFade: false });
@@ -1942,8 +1955,7 @@ register('renderItemIntoGui', function(item, x, y) {
         
         // If still nothing, do a live analysis
         if (!cacheData) {
-          const loreRaw = item.getLore();
-          const hex = extractHexFromLore(loreRaw);
+          const hex = extractHexFromItem(item);
           if (hex) {
             const analysis = analyzeSeymourArmor(hex, name);
             if (analysis) {
@@ -2093,7 +2105,7 @@ register("itemTooltip", function(lore, item, event) {
           itemCache.put(stack, cacheData);
         }
       } else {
-        const hex = extractHexFromLore(lore);
+        const hex = extractHexFromItem(item);
         if (!hex) return;
         
         const analysis = analyzeSeymourArmor(hex, itemName);
@@ -2209,8 +2221,7 @@ register("postGuiRender", function(mouseX, mouseY, gui) {
               itemCache.put(stack, cacheData);
             }
           } else {
-            const loreRaw = foundItem.getLore();
-            const hex = extractHexFromLore(loreRaw);
+            const hex = extractHexFromItem(foundItem);
             if (hex) {
               const analysis = analyzeSeymourArmor(hex, itemName);
               if (analysis) {
