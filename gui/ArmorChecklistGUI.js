@@ -402,6 +402,9 @@ export class ArmorChecklistGUI {
         categories["Dungeon Armor"].push({hex: "FF4242", name: "Adaptive Armour (Berserker Leggings + Boots)", pieces: ["leggings", "boots"]});
         categories["Dungeon Armor"].push({hex: "FFC234", name: "Adaptive Armour (Healer Chestplate)", pieces: ["chestplate"]});
         categories["Dungeon Armor"].push({hex: "FFF7E6", name: "Adaptive Armour (Healer Leggings + Boots)", pieces: ["leggings", "boots"]});
+        categories["Dungeon Armor"].push({hex: "D9D9D9", name: "Steel Chestplate", pieces: ["chestplate"]});
+        categories["Dungeon Armor"].push({hex: "D9D9D9", name: "Metal Chestplate", pieces: ["chestplate"]});
+        categories["Dungeon Armor"].push({hex: "D9D9D9", name: "Stone Chestplate", pieces: ["chestplate"]});
         categories["Dungeon Armor"].push({hex: "000000", name: "Shadow Assassin 3p", pieces: ["chestplate", "leggings", "boots"]});
         categories["Dungeon Armor"].push({hex: "000000", name: "Wither Armor 3p", pieces: ["chestplate", "leggings", "boots"]});
         categories["Dungeon Armor"].push({hex: "000000", name: "Necromancer Lord Chestplate", pieces: ["chestplate"]});
